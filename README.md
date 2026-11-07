@@ -6,4 +6,4 @@
 
 
 Tools and Databases used:
-SQL
+MYSQL
