@@ -7,3 +7,14 @@
 
 Tools and Databases used:
 MYSQL
+The data is available in 8 CSV files:
+
+customers.csv
+sellers.csv
+order_items.csv
+geolocation.csv
+payments.csv
+reviews.csv
+orders.csv
+products.csv
+By analyzing this extensive dataset, it becomes possible to gain valuable insights into Olist operations in Brazil. The information can shed light on various aspects of the business, such as order processing, pricing strategies, payment and shipping efficiency, customer demographics, product characteristics, and customer satisfaction levels.
