@@ -9,8 +9,13 @@
 MYSQL
 
 
-The data is available in 7 CSV files:
+# The data is available in 7 CSV files:
 customers.csv
 orders.csv
-
+order_items.csv
+geolocation.csv
+payments.csv
+reviews.csv
+orders.csv
+products.csv
 
