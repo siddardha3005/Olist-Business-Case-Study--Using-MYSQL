@@ -1,0 +1,263 @@
+create database bcommerce;
+
+Use bcommerce;
+
+-- 1) Exploration of Dataset
+
+-- Time period of Data
+select min(date(order_Purchased)),max(date(order_Purchased)) from olist_orders2;
+
+
+-- Cities and States from where the orders are placed
+
+select customer_city,customer_state from olist_customers;
+
+
+-- distribution of total orders as per their status
+
+select order_status,count(*) as order_count from olist_orders2
+group by order_status
+order by order_count desc;
+
+-- Order value of each order
+
+
+select order_id,price,freight,price+freight as total_value from olist_orders;
+
+-- Growth Trend 
+
+select
+time_period,
+order_count,
+round((((order_count - lag(order_count) over(order by t1.year,t1.month))/ lag(order_count) over(order by t1.year,t1.month))*100),2) 
+as growth_percent from (
+select extract(year from order_Purchased) as `year`,
+extract(month from order_Purchased) as `month`,
+date_format(order_Purchased,'%M %Y') as time_period,
+count(order_id) as order_count
+from olist_orders2
+where order_status='delivered'
+group by `month`,`year`,time_period) t1
+order by `year`,`month`;
+
+-- what time do customer tend to buy
+
+select 
+temp.purchase_time,
+count(*) as total_orders
+from (
+select order_id,
+case 
+
+when time(order_Purchased) between "07:00:01" and "12:00:00" then "Morning"
+when time(order_Purchased) between "12:00:01" and "18:00:00" then "Afternoon"
+when time(order_Purchased) between "18:00:01" and "23:59:59" then "Night"
+end
+as purchase_time
+from olist_orders2
+) temp
+group by purchase_time;
+
+
+-- Distribution of Customers across state in Brazil
+
+WITH base_data AS (
+    SELECT
+        o.order_id,
+        YEAR(o.order_Purchased) AS year,
+        p.payment_value
+    FROM olist_orders2 o
+    JOIN olist_payments p USING (order_id) 
+    where o.order_status="delivered"
+),
+
+monthly_revenue AS (
+    SELECT
+        year,
+        ROUND(SUM(payment_value)) AS total_orders_value
+    FROM base_data
+    GROUP BY year
+)
+
+SELECT
+    year,
+    total_orders_value,
+    ROUND(
+        (
+            total_orders_value -
+            LAG(total_orders_value) OVER (
+                ORDER BY year
+            )
+        ) /
+        LAG(total_orders_value) OVER (
+            ORDER BY year
+        ) * 100,
+        2
+    ) AS percent_increase
+FROM monthly_revenue
+ORDER BY year;
+
+-- Jan 2017 vs jan 2018 -----------------------------------------------
+
+WITH base_data AS (
+    SELECT
+        o.order_id,
+        YEAR(o.order_Purchased) AS year,
+        MONTH(o.order_Purchased) AS month,
+        DATE_FORMAT(o.order_Purchased, '%M %Y') AS Month_n_Year,
+        p.payment_value
+    FROM olist_orders2 o
+    JOIN olist_payments p USING (order_id)
+),
+
+monthly_revenue AS (
+    SELECT
+        year,
+        month,
+        Month_n_Year,
+        ROUND(SUM(payment_value)) AS total_orders_value
+    FROM base_data
+    GROUP BY year, month, Month_n_Year
+)
+
+SELECT
+    Month_n_Year,
+    total_orders_value,
+    ROUND(
+        (
+            total_orders_value -
+            LAG(total_orders_value) OVER (
+                PARTITION BY month
+                ORDER BY year
+            )
+        ) /
+        LAG(total_orders_value) OVER (
+            PARTITION BY month
+            ORDER BY year
+        ) * 100,
+        2
+    ) AS percent_increase
+FROM monthly_revenue
+ORDER BY month, year;
+
+
+-- Mean and sum of price & freight  value by customer state
+
+select c.customer_state as state ,
+round(sum(oi.price)) total_price,
+round(avg(oi.price)) avg_price,
+round(sum(oi.freight)) total_freight,
+round(avg(oi.freight)) avg_freight
+ from olist_orders oi 
+ join olist_orders2 o 
+ using (order_id)
+ join olist_customers as c
+ on c.customer_id=o.customer_id
+ group by state;
+
+ 
+ -- Analysis on sale,freight and delivery time
+ 
+ -- days between purchasing,delivering and actual delivery
+
+select order_id, datediff(order_deliver_customer,order_Purchased)  as actual_delivery_time_in_days ,
+datediff(order_estimated,order_Purchased) as estimated_delivery_time_in_days
+from olist_orders2
+where order_status="delivered" ;
+
+-- groping data by sate,mean of freight_value,time_to_delivery,diff_estimated_delivery
+
+select c.customer_state,round(avg(oi.freight),2) as avg_freight,
+round(avg(datediff(o.order_deliver_customer,o.order_Purchased)),2) as avg_time_to_delivery ,
+round(avg(datediff(o.order_estimated,o.order_deliver_customer)),2) as avg_diff_estimated_to_delivery
+from olist_orders2 o
+join olist_orders oi
+using (order_id) 
+join olist_customers c 
+on c.customer_id = o.customer_id 
+where o.order_status="delivered"
+group by c.customer_state;
+
+-- Top 5 states with highest average freight value
+
+select c.customer_state,round(avg(oi.freight),2) as avg_freight
+from olist_orders2  o
+join olist_orders oi
+using (order_id) 
+join olist_customers c 
+on c.customer_id = o.customer_id 
+where o.order_status="delivered"
+group by c.customer_state
+order by avg_freight desc
+limit 5 ;
+
+-- States with lowest freight values
+
+select c.customer_state,round(avg(oi.freight),2) as avg_freight
+from olist_orders2 o
+join olist_orders oi
+using (order_id) 
+join olist_customers c 
+on c.customer_id = o.customer_id 
+where o.order_status="delivered"
+group by c.customer_state
+order by avg_freight asc
+limit 5 ;
+
+-- Top 10 states with highest average time to delivery
+
+select c.customer_state,
+round(avg(datediff(o.order_deliver_customer,o.order_Purchased)),2) as avg_time_to_delivery 
+from olist_orders2 o
+join olist_orders oi
+using (order_id) 
+join olist_customers c 
+on c.customer_id = o.customer_id 
+where o.order_status="delivered"
+group by c.customer_state
+order by avg_time_to_delivery desc
+limit 10;
+
+
+-- top 5 states with fast delivery compared to estimated delivery
+
+select c.customer_state,
+round(avg(datediff(o.order_estimated,o.order_deliver_customer)),2) as avg_diff_estimated_to_delivery 
+from olist_orders2 o
+join olist_orders oi
+using (order_id) 
+join olist_customers c 
+on c.customer_id = o.customer_id 
+where o.order_status="delivered"
+group by c.customer_state
+order by avg_diff_estimated_to_delivery desc
+limit 5;
+
+
+
+-- Count of orders based on the no.of payments installments
+
+select payment_installment,count(*) as total_orders 
+from olist_payments 
+group by payment_installment
+order by payment_installment;
+
+
+-- Actionable Insights
+
+-- Total 625 orders were cancelled and 609 are unavailable during the given time_period, which makes it about 1.2% of total orders
+-- we can reduce this number by studying the reason behind the cancellation and the items unavailability 
+
+SELECT 
+    order_status,
+    order_count,
+    round(order_count * 100.0 / SUM(order_count) OVER (),2) AS percentage_of_total_orders
+FROM (
+    SELECT 
+        order_status,
+        COUNT(*) AS order_count
+    FROM olist_orders2
+    GROUP BY order_status
+
+  
+
