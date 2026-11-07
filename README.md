@@ -7,6 +7,8 @@
 
 Tools and Databases used:
 MYSQL
+
+
 The data is available in 8 CSV files:
 
 customers.csv
