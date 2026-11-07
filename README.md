@@ -5,7 +5,7 @@
 • Determined states with highest freight costs and longest delivery times, recommending logistics optimization to reduce delivery time by 15% 
 
 
-Tools and Databases used:
+# Tools and Databases used:
 MYSQL
 
 
